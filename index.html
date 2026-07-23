@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget App</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="heading-block">
+        <h1>Budget App</h1>
+        <p>Track income, expenses, savings, and closing balance.</p>
+      </div>
+      <div class="header-actions">
+        <div class="balance-card">
+          <label for="openingBalance">Opening balance</label>
+          <input id="openingBalance" type="number" value="10000" min="0" />
+        </div>
+        <button id="tipButton" class="secondary-button" type="button">Tip of the Day</button>
+      </div>
+    </header>
+
+    <section class="tip-strip">
+      <div class="tip-heading-row">
+        <strong>Tip of the Day</strong>
+      </div>
+      <div id="tipCategories" class="tip-categories" aria-label="Tip categories"></div>
+      <p id="tipText">A budget is easier to follow when you give every rupee a purpose.</p>
+      <div class="action-steps-wrap">
+        <strong>Action steps</strong>
+        <ol id="tipSteps" class="tip-steps"></ol>
+      </div>
+    </section>
+
+    <section class="summary-metrics">
+      <div class="metric-card starting">
+        <span>Starting Balance</span>
+        <strong id="summaryOpening">₹0</strong>
+      </div>
+      <div class="metric-card income">
+        <span>Income</span>
+        <strong id="summaryIncome">₹0</strong>
+      </div>
+      <div class="metric-card expense">
+        <span>Expense</span>
+        <strong id="summaryExpenses">₹0</strong>
+      </div>
+      <div class="metric-card ending">
+        <span>Ending Balance</span>
+        <strong id="summaryClosing">₹0</strong>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="entry-card">
+        <h2>Add Income / Expense</h2>
+        <form id="entryForm" class="entry-row-form">
+          <div class="field-row compact">
+            <label>Type</label>
+            <select id="entryType" required>
+              <option value="Income">Income</option>
+              <option value="Expense">Expense</option>
+            </select>
+          </div>
+          <div class="field-row compact">
+            <label>Date</label>
+            <input id="entryDate" type="date" required />
+          </div>
+          <div class="field-row compact">
+            <label>Category</label>
+            <select id="entryCategory" required>
+              <option value="Salary">Salary</option>
+              <option value="Rent">Rent</option>
+            </select>
+          </div>
+          <div class="field-row description-field">
+            <label>Description</label>
+            <input id="entryDescription" type="text" placeholder="Description" required />
+          </div>
+          <div class="field-row compact">
+            <label>Amount</label>
+            <input id="entryAmount" type="number" placeholder="0" min="0" required />
+          </div>
+          <button type="submit">Add</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="entries-section">
+      <div class="table-card">
+        <h2>Entries</h2>
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr>
+          </thead>
+          <tbody id="entriesTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="chart-section">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <h2>Chart</h2>
+          <button id="downloadReportButton" type="button">Download Report</button>
+        </div>
+        <canvas id="budgetChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
