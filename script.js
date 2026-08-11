@@ -24,6 +24,7 @@ const tipText = document.getElementById('tipText');
 const tipSection = document.querySelector('.tip-strip');
 const tipSteps = document.getElementById('tipSteps');
 const tipActions = document.getElementById('tipActions');
+const chartPlaceholder = document.getElementById('chartPlaceholder');
 const incomeClearButton = document.getElementById('incomeClearButton');
 const expenseClearButton = document.getElementById('expenseClearButton');
 
@@ -280,6 +281,19 @@ function updateChart(openingBalance, totalIncome, totalExpenses, closingBalance)
       },
     },
   };
+
+  if (!entries.length) {
+    if (budgetChart) {
+      budgetChart.destroy();
+      budgetChart = null;
+    }
+    chartCanvas.style.display = 'none';
+    if (chartPlaceholder) chartPlaceholder.style.display = 'block';
+    return;
+  }
+
+  chartCanvas.style.display = '';
+  if (chartPlaceholder) chartPlaceholder.style.display = 'none';
 
   if (budgetChart) {
     budgetChart.data = data;
