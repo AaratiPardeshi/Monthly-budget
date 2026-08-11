@@ -8,15 +8,15 @@ This is a portable static budgeting app that runs entirely in the browser.
 2. Open `index.html` in a browser.
 
 ## Publish a global URL
-
+  
 ### Option 1: GitHub Pages
 
-1. Create a GitHub repository, for example:
-   `https://github.com/<your-username>/monthly-budget`
+1. Create or use this GitHub repository:
+   `https://github.com/AaratiPardeshi/Monthly-budget`
 2. Push the entire project folder to that repository.
-3. In GitHub repository settings, enable Pages from the `main` branch.
+3. In GitHub repository settings, enable Pages from the `gh-pages` branch (or `main` if you prefer).
 4. Your app URL will be:
-   `https://<your-username>.github.io/monthly-budget/`
+   `https://aaratipardeshi.github.io/Monthly-budget/`
 
 ### Option 2: Netlify
 
