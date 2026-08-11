@@ -29,9 +29,8 @@
       <div class="tip-heading-row">
         <strong>Tip of the Day</strong>
       </div>
-      <div id="tipCategories" class="tip-categories" aria-label="Tip categories"></div>
       <p id="tipText">A budget is easier to follow when you give every rupee a purpose.</p>
-      <div class="action-steps-wrap">
+      <div id="tipActions" class="action-steps-wrap">
         <strong>Action steps</strong>
         <ol id="tipSteps" class="tip-steps"></ol>
       </div>
@@ -58,45 +57,80 @@
 
     <section class="form-section">
       <div class="entry-card">
-        <h2>Add Income / Expense</h2>
-        <form id="entryForm" class="entry-row-form">
+        <div class="forms-grid">
+          <div class="form-column">
+            <h3>Add Income</h3>
+
+            <form id="incomeForm" class="entry-row-form">
           <div class="field-row compact">
-            <label>Type</label>
-            <select id="entryType" required>
-              <option value="Income">Income</option>
-              <option value="Expense">Expense</option>
-            </select>
-          </div>
-          <div class="field-row compact">
-            <label>Date</label>
-            <input id="entryDate" type="date" required />
+            <label>Income Date</label>
+            <input id="incomeDate" type="date" required />
           </div>
           <div class="field-row compact">
             <label>Category</label>
-            <select id="entryCategory" required>
-              <option value="Salary">Salary</option>
-              <option value="Rent">Rent</option>
-            </select>
+            <select id="incomeCategory" required></select>
           </div>
           <div class="field-row description-field">
             <label>Description</label>
-            <input id="entryDescription" type="text" placeholder="Description" required />
+            <input id="incomeDescription" type="text" placeholder="Description" required />
+          </div>
+              <div class="field-row compact amount-row">
+                <label>Amount</label>
+                <input id="incomeAmount" type="number" placeholder="0" min="0" required />
+                <div class="action-row">
+                  <button type="submit">Add</button>
+                  <button type="button" id="incomeClearButton" class="secondary-button">Clear</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="form-column">
+            <h3>Add Expense</h3>
+
+            <form id="expenseForm" class="entry-row-form">
+          <div class="field-row compact">
+            <label>Expense Date</label>
+            <input id="expenseDate" type="date" required />
           </div>
           <div class="field-row compact">
-            <label>Amount</label>
-            <input id="entryAmount" type="number" placeholder="0" min="0" required />
+            <label>Category</label>
+            <select id="expenseCategory" required></select>
           </div>
-          <button type="submit">Add</button>
-        </form>
+          <div class="field-row description-field">
+            <label>Description</label>
+            <input id="expenseDescription" type="text" placeholder="Description" required />
+          </div>
+              <div class="field-row compact amount-row">
+                <label>Amount</label>
+                <input id="expenseAmount" type="number" placeholder="0" min="0" required />
+                <div class="action-row">
+                  <button type="submit">Add</button>
+                  <button type="button" id="expenseClearButton" class="secondary-button">Clear</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="entries-section">
       <div class="table-card">
-        <h2>Entries</h2>
+        <div class="table-header">
+          <h2>Entries</h2>
+          <button id="deleteSelectedButton" type="button" class="secondary-button">Delete</button>
+        </div>
         <table>
           <thead>
-            <tr><th>Type</th><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr>
+            <tr>
+              <th><input id="selectAllCheckbox" type="checkbox" aria-label="Select all entries" /></th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+            </tr>
           </thead>
           <tbody id="entriesTableBody"></tbody>
         </table>

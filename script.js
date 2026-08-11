@@ -1,10 +1,15 @@
 const openingBalanceInput = document.getElementById('openingBalance');
-const entryForm = document.getElementById('entryForm');
-const entryType = document.getElementById('entryType');
-const entryDate = document.getElementById('entryDate');
-const entryCategory = document.getElementById('entryCategory');
-const entryDescription = document.getElementById('entryDescription');
-const entryAmount = document.getElementById('entryAmount');
+const incomeForm = document.getElementById('incomeForm');
+const incomeDate = document.getElementById('incomeDate');
+const incomeCategory = document.getElementById('incomeCategory');
+const incomeDescription = document.getElementById('incomeDescription');
+const incomeAmount = document.getElementById('incomeAmount');
+
+const expenseForm = document.getElementById('expenseForm');
+const expenseDate = document.getElementById('expenseDate');
+const expenseCategory = document.getElementById('expenseCategory');
+const expenseDescription = document.getElementById('expenseDescription');
+const expenseAmount = document.getElementById('expenseAmount');
 const entriesTableBody = document.getElementById('entriesTableBody');
 const summaryOpening = document.getElementById('summaryOpening');
 const summaryIncome = document.getElementById('summaryIncome');
@@ -12,12 +17,18 @@ const summaryExpenses = document.getElementById('summaryExpenses');
 const summaryClosing = document.getElementById('summaryClosing');
 const chartCanvas = document.getElementById('budgetChart');
 const downloadReportButton = document.getElementById('downloadReportButton');
+const deleteSelectedButton = document.getElementById('deleteSelectedButton');
+const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 const tipButton = document.getElementById('tipButton');
 const tipText = document.getElementById('tipText');
-const tipCategories = document.getElementById('tipCategories');
+const tipSection = document.querySelector('.tip-strip');
 const tipSteps = document.getElementById('tipSteps');
+const tipActions = document.getElementById('tipActions');
+const incomeClearButton = document.getElementById('incomeClearButton');
+const expenseClearButton = document.getElementById('expenseClearButton');
 
 let entries = [];
+let nextEntryId = 1;
 let budgetChart;
 
 const financeTips = {
@@ -76,34 +87,72 @@ function formatPdfCurrency(value) {
   return `Rs ${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 }
 
-function renderTipCategoryButtons() {
-  const categories = Object.keys(financeTips);
-  tipCategories.innerHTML = '';
+function getSavingsTip() {
+  const totalIncome = entries.filter((item) => item.type === 'Income').reduce((sum, item) => sum + item.amount, 0);
+  const totalExpenses = entries.filter((item) => item.type === 'Expense').reduce((sum, item) => sum + item.amount, 0);
+  const savings = totalIncome - totalExpenses;
 
-  categories.forEach((category) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tip-category-button';
-    button.textContent = category;
-    button.addEventListener('click', () => showTipByCategory(category));
-    tipCategories.appendChild(button);
-  });
+  if (entries.length === 0) {
+    return null;
+  }
+
+  if (savings >= totalIncome * 0.2) {
+    return {
+      message: 'Your savings are strong. Keep this pace and consider increasing your reserve for future goals.',
+      steps: [
+        'Keep tracking income and expense entries regularly.',
+        'Raise your savings goal slightly if your cash flow stays stable.',
+        'Consider splitting savings into short-term and long-term buckets.',
+      ],
+    };
+  }
+
+  if (savings >= 0) {
+    return {
+      message: 'You are saving money. Focus on maintaining this balance and trimming discretionary expenses for faster progress.',
+      steps: [
+        'Review your variable expenses and see where you can reduce small recurring costs.',
+        'Keep setting aside a fixed amount each week or month.',
+        'Use your closing balance to decide how much you can safely save next month.',
+      ],
+    };
+  }
+
+  return {
+    message: 'Your expenses exceed income. Prioritize reducing spending so you can start building savings.',
+    steps: [
+      'Identify the largest expense categories and reduce one of them.',
+      'Avoid non-essential purchases until you have a positive savings buffer.',
+      'Use the app to track every entry and spot patterns quickly.',
+    ],
+  };
 }
 
-function showTipByCategory(category) {
-  const selectedTip = financeTips[category];
-  tipText.textContent = selectedTip.message;
-  tipSteps.innerHTML = selectedTip.steps.map((step) => `<li>${step}</li>`).join('');
+function updateTipSection() {
+  const tip = getSavingsTip();
 
-  document.querySelectorAll('.tip-category-button').forEach((btn) => {
-    btn.classList.toggle('active', btn.textContent === category);
-  });
+  if (!tip) {
+    tipSection.style.display = 'none';
+    return;
+  }
+
+  tipSection.style.display = '';
+  tipText.textContent = tip.message;
+  tipSteps.innerHTML = tip.steps.map((step) => `<li>${step}</li>`).join('');
+  tipActions.style.display = '';
 }
 
 function showTipOfTheDay() {
-  const categories = Object.keys(financeTips);
-  const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-  showTipByCategory(randomCategory);
+  updateTipSection();
+}
+
+function clearEntries() {
+  const confirmed = window.confirm('Are you sure you want to clear all entries? This cannot be undone.');
+  if (!confirmed) return;
+
+  entries = [];
+  refreshEntries();
+  updateSummary();
 }
 
 function updateSummary() {
@@ -118,12 +167,15 @@ function updateSummary() {
   summaryClosing.textContent = formatCurrency(closingBalance);
 
   updateChart(openingBalance, totalIncome, totalExpenses, closingBalance);
+  updateTipSection();
 }
 
 function addEntryRow(record) {
   const row = document.createElement('tr');
+  row.setAttribute('data-id', record.id);
   const amountClass = record.type === 'Income' ? 'amount-income' : 'amount-expense';
   row.innerHTML = `
+    <td><input type="checkbox" class="select-entry" data-id="${record.id}" aria-label="Select entry"/></td>
     <td>${record.type}</td>
     <td>${record.date}</td>
     <td>${record.category}</td>
@@ -337,41 +389,74 @@ function generateReportPdf() {
 }
 
 function updateCategoryOptions() {
-  const selectedType = entryType.value;
-  entryCategory.innerHTML = '';
-  categoryOptions[selectedType].forEach((option) => {
+  incomeCategory.innerHTML = '';
+  expenseCategory.innerHTML = '';
+  categoryOptions['Income'].forEach((option) => {
     const optionElement = document.createElement('option');
     optionElement.value = option;
     optionElement.textContent = option;
-    entryCategory.appendChild(optionElement);
+    incomeCategory.appendChild(optionElement);
+  });
+  categoryOptions['Expense'].forEach((option) => {
+    const optionElement = document.createElement('option');
+    optionElement.value = option;
+    optionElement.textContent = option;
+    expenseCategory.appendChild(optionElement);
   });
 }
 
-function addEntryRecord(event) {
+function addEntryRecord(event, type, dateEl, categoryEl, descriptionEl, amountEl) {
   event.preventDefault();
-  const type = entryType.value;
-  const date = entryDate.value;
-  const category = entryCategory.value;
-  const description = entryDescription.value.trim();
-  const amount = Number(entryAmount.value);
+  const date = dateEl.value;
+  const category = categoryEl.value;
+  const description = descriptionEl.value.trim();
+  const amount = Number(amountEl.value);
 
   if (!date || !category || !description || amount <= 0) return;
 
-  entries.push({ type, date, category, description, amount });
+  const record = { id: nextEntryId++, type, date, category, description, amount };
+  entries.push(record);
   refreshEntries();
   updateSummary();
-  entryForm.reset();
-  entryType.value = 'Income';
+  event.target.reset();
+  updateCategoryOptions();
+}
+
+function deleteSelected() {
+  const checked = Array.from(document.querySelectorAll('.select-entry:checked'));
+  if (checked.length === 0) return;
+  const confirmed = window.confirm(`Delete ${checked.length} selected entr${checked.length > 1 ? 'ies' : 'y'}? This cannot be undone.`);
+  if (!confirmed) return;
+  const idsToDelete = checked.map((cb) => Number(cb.getAttribute('data-id')));
+  entries = entries.filter((e) => !idsToDelete.includes(e.id));
+  refreshEntries();
+  updateSummary();
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.select-entry').forEach((cb) => { cb.checked = checked; });
+}
+
+function clearIncomeForm() {
+  incomeForm.reset();
+  updateCategoryOptions();
+}
+
+function clearExpenseForm() {
+  expenseForm.reset();
   updateCategoryOptions();
 }
 
 openingBalanceInput.addEventListener('input', updateSummary);
-entryForm.addEventListener('submit', addEntryRecord);
-entryType.addEventListener('change', updateCategoryOptions);
+incomeForm.addEventListener('submit', (e) => addEntryRecord(e, 'Income', incomeDate, incomeCategory, incomeDescription, incomeAmount));
+expenseForm.addEventListener('submit', (e) => addEntryRecord(e, 'Expense', expenseDate, expenseCategory, expenseDescription, expenseAmount));
 downloadReportButton.addEventListener('click', generateReportPdf);
+deleteSelectedButton.addEventListener('click', deleteSelected);
+selectAllCheckbox.addEventListener('change', (e) => toggleSelectAll(e.target.checked));
 tipButton.addEventListener('click', showTipOfTheDay);
+incomeClearButton.addEventListener('click', clearIncomeForm);
+expenseClearButton.addEventListener('click', clearExpenseForm);
 
 updateCategoryOptions();
 updateSummary();
-renderTipCategoryButtons();
-showTipByCategory('Budgeting');
+updateTipSection();

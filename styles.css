@@ -148,9 +148,32 @@ body {
   gap: 6px;
 }
 
+.field-row.compact.amount-row {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field-row.compact.amount-row input {
+  width: 100%;
+  min-width: 120px;
+}
+
 .field-row.description-field {
   display: grid;
   gap: 6px;
+}
+
+.action-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.action-row button {
+  min-width: 80px;
 }
 
 .field-row input,
