@@ -167,7 +167,7 @@ function handleForgotPassword() {
 function togglePasswordVisibility() {
   const isVisible = authPassword.type === 'text';
   authPassword.type = isVisible ? 'password' : 'text';
-  togglePasswordButton.textContent = isVisible ? '\u{1F441}' : '\u{1F441}\u{0338}';
+  togglePasswordButton.textContent = isVisible ? 'Show' : 'Hide';
   togglePasswordButton.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
   togglePasswordButton.setAttribute('title', isVisible ? 'Show password' : 'Hide password');
 }
