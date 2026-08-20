@@ -71,6 +71,26 @@ body {
   font-size: 0.95rem;
 }
 
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 64px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-size: 0.84rem;
+}
+
+.password-toggle:hover {
+  transform: translateY(-50%);
+}
+
 .auth-message {
   min-height: 22px;
   color: #0f766e !important;

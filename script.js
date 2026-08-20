@@ -36,6 +36,7 @@ const authEmail = document.getElementById('authEmail');
 const authMobile = document.getElementById('authMobile');
 const authUsername = document.getElementById('authUsername');
 const authPassword = document.getElementById('authPassword');
+const togglePasswordButton = document.getElementById('togglePasswordButton');
 const authMessage = document.getElementById('authMessage');
 const authSubmitButton = document.getElementById('authSubmitButton');
 const authModeButton = document.getElementById('authModeButton');
@@ -161,6 +162,13 @@ function handleForgotPassword() {
   authUsername.value = username;
   authPassword.value = '';
   showAuthMessage('Password updated on this device. You can sign in now.', false);
+}
+
+function togglePasswordVisibility() {
+  const isVisible = authPassword.type === 'text';
+  authPassword.type = isVisible ? 'password' : 'text';
+  togglePasswordButton.textContent = isVisible ? 'Show' : 'Hide';
+  togglePasswordButton.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
 }
 
 function handleLogout() {
@@ -631,6 +639,7 @@ expenseClearButton.addEventListener('click', clearExpenseForm);
 authForm.addEventListener('submit', handleAuthSubmit);
 authModeButton.addEventListener('click', toggleAuthMode);
 forgotPasswordButton.addEventListener('click', handleForgotPassword);
+togglePasswordButton.addEventListener('click', togglePasswordVisibility);
 logoutButton.addEventListener('click', handleLogout);
 
 updateCategoryOptions();
