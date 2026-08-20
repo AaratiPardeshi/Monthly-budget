@@ -83,6 +83,9 @@ body {
   position: absolute;
   top: 50%;
   right: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   transform: translateY(-50%);
   font-size: 1.1rem;
   line-height: 1;
