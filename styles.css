@@ -58,6 +58,11 @@ body {
   gap: 10px;
 }
 
+.registration-fields {
+  display: none;
+  gap: 10px;
+}
+
 .auth-form input {
   width: 100%;
   border: 1px solid #cbd5e1;

@@ -29,6 +29,11 @@ const incomeClearButton = document.getElementById('incomeClearButton');
 const expenseClearButton = document.getElementById('expenseClearButton');
 const authView = document.getElementById('authView');
 const authForm = document.getElementById('authForm');
+const registrationFields = document.getElementById('registrationFields');
+const authFirstName = document.getElementById('authFirstName');
+const authLastName = document.getElementById('authLastName');
+const authEmail = document.getElementById('authEmail');
+const authMobile = document.getElementById('authMobile');
 const authUsername = document.getElementById('authUsername');
 const authPassword = document.getElementById('authPassword');
 const authMessage = document.getElementById('authMessage');
@@ -84,6 +89,13 @@ function showAuthMessage(message, isError = true) {
   authMessage.classList.toggle('error', isError);
 }
 
+function updateRegistrationFields() {
+  registrationFields.style.display = isRegistrationMode ? 'grid' : 'none';
+  [authFirstName, authLastName, authEmail, authMobile].forEach((field) => {
+    field.required = isRegistrationMode;
+  });
+}
+
 function handleAuthSubmit(event) {
   event.preventDefault();
   const username = authUsername.value.trim().toLowerCase();
@@ -92,11 +104,17 @@ function handleAuthSubmit(event) {
 
   const users = getStoredUsers();
   if (isRegistrationMode) {
+    const profile = {
+      firstName: authFirstName.value.trim(),
+      lastName: authLastName.value.trim(),
+      email: authEmail.value.trim().toLowerCase(),
+      mobile: authMobile.value.trim(),
+    };
     if (users[username]) {
       showAuthMessage('That username already exists. Sign in instead.');
       return;
     }
-    users[username] = { password };
+    users[username] = { password, ...profile };
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   } else if (!users[username] || users[username].password !== password) {
     showAuthMessage('Username or password is incorrect.');
@@ -118,6 +136,7 @@ function toggleAuthMode() {
   authSubmitButton.textContent = isRegistrationMode ? 'Create account' : 'Sign in';
   authModeButton.textContent = isRegistrationMode ? 'Already have an account? Sign in' : 'New here? Create an account';
   authPassword.setAttribute('autocomplete', isRegistrationMode ? 'new-password' : 'current-password');
+  updateRegistrationFields();
   showAuthMessage('');
 }
 
@@ -150,6 +169,7 @@ function handleLogout() {
   isRegistrationMode = false;
   authSubmitButton.textContent = 'Sign in';
   authModeButton.textContent = 'New here? Create an account';
+  updateRegistrationFields();
   sessionStorage.removeItem(SESSION_STORAGE_KEY);
   setAuthenticatedView(false);
 }
@@ -614,6 +634,7 @@ forgotPasswordButton.addEventListener('click', handleForgotPassword);
 logoutButton.addEventListener('click', handleLogout);
 
 updateCategoryOptions();
+updateRegistrationFields();
 const savedSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
 if (savedSession && getStoredUsers()[savedSession]) {
   currentUsername = savedSession;

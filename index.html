@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budget App</title>
-  <link rel="stylesheet" href="styles.css?v=467bcf8" />
+  <link rel="stylesheet" href="styles.css?v=registration-profile" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
@@ -18,6 +18,16 @@
         <p>Sign in to keep your budget separate and available on this device.</p>
       </div>
       <form id="authForm" class="auth-form">
+        <div id="registrationFields" class="registration-fields">
+          <label for="authFirstName">First name</label>
+          <input id="authFirstName" type="text" autocomplete="given-name" />
+          <label for="authLastName">Last name</label>
+          <input id="authLastName" type="text" autocomplete="family-name" />
+          <label for="authEmail">Email ID</label>
+          <input id="authEmail" type="email" autocomplete="email" />
+          <label for="authMobile">Mobile number</label>
+          <input id="authMobile" type="tel" autocomplete="tel" />
+        </div>
         <label for="authUsername">Username</label>
         <input id="authUsername" type="text" autocomplete="username" required />
         <label for="authPassword">Password</label>
@@ -179,6 +189,6 @@
     </section>
   </div>
 
-  <script src="script.js?v=467bcf8"></script>
+  <script src="script.js?v=registration-profile"></script>
 </body>
 </html>

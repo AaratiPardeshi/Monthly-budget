@@ -7,7 +7,7 @@ This is a portable static budgeting app that runs entirely in the browser.
 1. Copy the full project folder to any computer.
 2. Open `index.html` in a browser.
 
-On first launch, create a local account and sign in. Each account stores its opening balance and entries separately in that browser, and the session is cleared when you sign out. This static version does not provide server-side authentication or cloud synchronization; use a backend identity and database when credentials must work across devices.
+On first launch, create a local account with your first name, last name, email ID, mobile number, username, and password. Each account stores its profile, opening balance, and entries separately in that browser, and the session is cleared when you sign out. This static version does not provide server-side authentication or cloud synchronization; use a backend identity and database when credentials must work across devices.
 
 To download a report for a particular period, select the `From` and `To` dates above the chart before choosing `Download Report`. Leave either date blank to make that side of the range open-ended.
 
