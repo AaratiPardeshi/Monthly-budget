@@ -27,10 +27,108 @@ const tipActions = document.getElementById('tipActions');
 const chartPlaceholder = document.getElementById('chartPlaceholder');
 const incomeClearButton = document.getElementById('incomeClearButton');
 const expenseClearButton = document.getElementById('expenseClearButton');
+const authView = document.getElementById('authView');
+const authForm = document.getElementById('authForm');
+const authUsername = document.getElementById('authUsername');
+const authPassword = document.getElementById('authPassword');
+const authMessage = document.getElementById('authMessage');
+const authSubmitButton = document.getElementById('authSubmitButton');
+const authModeButton = document.getElementById('authModeButton');
+const logoutButton = document.getElementById('logoutButton');
+const currentUserName = document.getElementById('currentUserName');
+const reportForm = document.getElementById('reportForm');
+const reportStartDate = document.getElementById('reportStartDate');
+const reportEndDate = document.getElementById('reportEndDate');
 
 let entries = [];
 let nextEntryId = 1;
 let budgetChart;
+let currentUsername = '';
+let isRegistrationMode = false;
+
+const USERS_STORAGE_KEY = 'budgetAppUsers';
+const SESSION_STORAGE_KEY = 'budgetAppSession';
+
+function getStoredUsers() {
+  return JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '{}');
+}
+
+function getBudgetStorageKey(username) {
+  return `budgetAppData:${username}`;
+}
+
+function saveBudgetState() {
+  if (!currentUsername) return;
+  localStorage.setItem(getBudgetStorageKey(currentUsername), JSON.stringify({
+    openingBalance: Number(openingBalanceInput.value) || 0,
+    entries,
+    nextEntryId,
+  }));
+}
+
+function loadBudgetState() {
+  const savedState = JSON.parse(localStorage.getItem(getBudgetStorageKey(currentUsername)) || 'null');
+  openingBalanceInput.value = savedState?.openingBalance ?? 10000;
+  entries = Array.isArray(savedState?.entries) ? savedState.entries : [];
+  nextEntryId = savedState?.nextEntryId || (entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0) + 1);
+}
+
+function setAuthenticatedView(isAuthenticated) {
+  authView.style.display = isAuthenticated ? 'none' : 'grid';
+  document.querySelector('.app-shell').style.display = isAuthenticated ? 'grid' : 'none';
+}
+
+function showAuthMessage(message, isError = true) {
+  authMessage.textContent = message;
+  authMessage.classList.toggle('error', isError);
+}
+
+function handleAuthSubmit(event) {
+  event.preventDefault();
+  const username = authUsername.value.trim().toLowerCase();
+  const password = authPassword.value;
+  if (!username || password.length < 4) return;
+
+  const users = getStoredUsers();
+  if (isRegistrationMode) {
+    if (users[username]) {
+      showAuthMessage('That username already exists. Sign in instead.');
+      return;
+    }
+    users[username] = { password };
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } else if (!users[username] || users[username].password !== password) {
+    showAuthMessage('Username or password is incorrect.');
+    return;
+  }
+
+  currentUsername = username;
+  sessionStorage.setItem(SESSION_STORAGE_KEY, currentUsername);
+  currentUserName.textContent = currentUsername;
+  loadBudgetState();
+  setAuthenticatedView(true);
+  refreshEntries();
+  updateSummary();
+  authForm.reset();
+}
+
+function toggleAuthMode() {
+  isRegistrationMode = !isRegistrationMode;
+  authSubmitButton.textContent = isRegistrationMode ? 'Create account' : 'Sign in';
+  authModeButton.textContent = isRegistrationMode ? 'Already have an account? Sign in' : 'New here? Create an account';
+  authPassword.setAttribute('autocomplete', isRegistrationMode ? 'new-password' : 'current-password');
+  showAuthMessage('');
+}
+
+function handleLogout() {
+  saveBudgetState();
+  currentUsername = '';
+  isRegistrationMode = false;
+  authSubmitButton.textContent = 'Sign in';
+  authModeButton.textContent = 'New here? Create an account';
+  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  setAuthenticatedView(false);
+}
 
 const financeTips = {
   Budgeting: {
@@ -152,6 +250,7 @@ function clearEntries() {
   if (!confirmed) return;
 
   entries = [];
+  saveBudgetState();
   refreshEntries();
   updateSummary();
 }
@@ -304,16 +403,24 @@ function updateChart(openingBalance, totalIncome, totalExpenses, closingBalance)
   }
 }
 
-function generateReportPdf() {
+function generateReportPdf(event) {
+  event?.preventDefault();
   const jsPDFConstructor = window.jspdf?.jsPDF || window.jsPDF;
   if (!jsPDFConstructor) {
     alert('PDF export is unavailable.');
     return;
   }
 
+  const startDate = reportStartDate.value;
+  const endDate = reportEndDate.value;
+  if (startDate && endDate && startDate > endDate) {
+    alert('The report start date must be before the end date.');
+    return;
+  }
+  const filteredEntries = entries.filter((item) => (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate));
   const openingBalance = Number(openingBalanceInput.value) || 0;
-  const totalIncome = entries.filter((item) => item.type === 'Income').reduce((sum, item) => sum + item.amount, 0);
-  const totalExpenses = entries.filter((item) => item.type === 'Expense').reduce((sum, item) => sum + item.amount, 0);
+  const totalIncome = filteredEntries.filter((item) => item.type === 'Income').reduce((sum, item) => sum + item.amount, 0);
+  const totalExpenses = filteredEntries.filter((item) => item.type === 'Expense').reduce((sum, item) => sum + item.amount, 0);
   const savings = totalIncome - totalExpenses;
   const closingBalance = openingBalance + savings;
   const doc = new jsPDFConstructor({ unit: 'pt', format: 'a4' });
@@ -329,6 +436,8 @@ function generateReportPdf() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(`Generated: ${new Date().toLocaleString()}`, margin, y);
+  y += 20;
+  doc.text(`Period: ${startDate || 'All dates'} to ${endDate || 'All dates'}`, margin, y);
   y += 20;
 
   doc.setFont('helvetica', 'bold');
@@ -362,7 +471,7 @@ function generateReportPdf() {
   doc.text('Entries', margin, y);
   y += 18;
 
-  const entryBody = entries.map((record) => [record.type, record.date, record.category, record.description, formatPdfCurrency(record.amount)]);
+  const entryBody = filteredEntries.map((record) => [record.type, record.date, record.category, record.description, formatPdfCurrency(record.amount)]);
   if (entryBody.length === 0) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
@@ -398,7 +507,7 @@ function generateReportPdf() {
   }
   doc.addImage(chartImage, 'PNG', margin, y, chartWidth, chartHeight);
 
-  const fileName = `Budget-Report-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const fileName = `Budget-Report-${startDate || 'all'}-to-${endDate || 'all'}.pdf`;
   doc.save(fileName);
 }
 
@@ -430,6 +539,7 @@ function addEntryRecord(event, type, dateEl, categoryEl, descriptionEl, amountEl
 
   const record = { id: nextEntryId++, type, date, category, description, amount };
   entries.push(record);
+  saveBudgetState();
   refreshEntries();
   updateSummary();
   event.target.reset();
@@ -443,6 +553,7 @@ function deleteSelected() {
   if (!confirmed) return;
   const idsToDelete = checked.map((cb) => Number(cb.getAttribute('data-id')));
   entries = entries.filter((e) => !idsToDelete.includes(e.id));
+  saveBudgetState();
   refreshEntries();
   updateSummary();
 }
@@ -461,16 +572,31 @@ function clearExpenseForm() {
   updateCategoryOptions();
 }
 
-openingBalanceInput.addEventListener('input', updateSummary);
+openingBalanceInput.addEventListener('input', () => {
+  saveBudgetState();
+  updateSummary();
+});
 incomeForm.addEventListener('submit', (e) => addEntryRecord(e, 'Income', incomeDate, incomeCategory, incomeDescription, incomeAmount));
 expenseForm.addEventListener('submit', (e) => addEntryRecord(e, 'Expense', expenseDate, expenseCategory, expenseDescription, expenseAmount));
-downloadReportButton.addEventListener('click', generateReportPdf);
+reportForm.addEventListener('submit', generateReportPdf);
 deleteSelectedButton.addEventListener('click', deleteSelected);
 selectAllCheckbox.addEventListener('change', (e) => toggleSelectAll(e.target.checked));
 tipButton.addEventListener('click', showTipOfTheDay);
 incomeClearButton.addEventListener('click', clearIncomeForm);
 expenseClearButton.addEventListener('click', clearExpenseForm);
+authForm.addEventListener('submit', handleAuthSubmit);
+authModeButton.addEventListener('click', toggleAuthMode);
+logoutButton.addEventListener('click', handleLogout);
 
 updateCategoryOptions();
-updateSummary();
-updateTipSection();
+const savedSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+if (savedSession && getStoredUsers()[savedSession]) {
+  currentUsername = savedSession;
+  currentUserName.textContent = currentUsername;
+  loadBudgetState();
+  setAuthenticatedView(true);
+  refreshEntries();
+  updateSummary();
+} else {
+  setAuthenticatedView(false);
+}
