@@ -84,7 +84,8 @@ body {
   top: 50%;
   right: 12px;
   transform: translateY(-50%);
-  font-size: 0.84rem;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .password-toggle:hover {
