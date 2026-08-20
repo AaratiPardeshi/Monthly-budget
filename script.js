@@ -34,6 +34,7 @@ const authPassword = document.getElementById('authPassword');
 const authMessage = document.getElementById('authMessage');
 const authSubmitButton = document.getElementById('authSubmitButton');
 const authModeButton = document.getElementById('authModeButton');
+const forgotPasswordButton = document.getElementById('forgotPasswordButton');
 const logoutButton = document.getElementById('logoutButton');
 const currentUserName = document.getElementById('currentUserName');
 const reportForm = document.getElementById('reportForm');
@@ -118,6 +119,29 @@ function toggleAuthMode() {
   authModeButton.textContent = isRegistrationMode ? 'Already have an account? Sign in' : 'New here? Create an account';
   authPassword.setAttribute('autocomplete', isRegistrationMode ? 'new-password' : 'current-password');
   showAuthMessage('');
+}
+
+function handleForgotPassword() {
+  const username = authUsername.value.trim().toLowerCase() || window.prompt('Enter your username:')?.trim().toLowerCase();
+  if (!username) return;
+
+  const users = getStoredUsers();
+  if (!users[username]) {
+    showAuthMessage('No local account was found for that username.');
+    return;
+  }
+
+  const newPassword = window.prompt('Enter a new password with at least 4 characters:');
+  if (!newPassword || newPassword.length < 4) {
+    showAuthMessage('Password reset cancelled or password is too short.');
+    return;
+  }
+
+  users[username].password = newPassword;
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  authUsername.value = username;
+  authPassword.value = '';
+  showAuthMessage('Password updated on this device. You can sign in now.', false);
 }
 
 function handleLogout() {
@@ -586,6 +610,7 @@ incomeClearButton.addEventListener('click', clearIncomeForm);
 expenseClearButton.addEventListener('click', clearExpenseForm);
 authForm.addEventListener('submit', handleAuthSubmit);
 authModeButton.addEventListener('click', toggleAuthMode);
+forgotPasswordButton.addEventListener('click', handleForgotPassword);
 logoutButton.addEventListener('click', handleLogout);
 
 updateCategoryOptions();

@@ -91,6 +91,12 @@ body {
   text-decoration: underline;
 }
 
+.auth-forgot-button {
+  justify-self: start;
+  margin-top: -2px;
+  font-size: 0.88rem;
+}
+
 .app-shell {
   width: 100%;
   min-width: 0;
