@@ -372,6 +372,14 @@ function getCategorySpend(category) {
     .reduce((sum, item) => sum + item.amount, 0);
 }
 
+function getCashFlowObservation(totalIncome, totalExpenses, savings) {
+  if (totalIncome === 0 && totalExpenses > 0) return 'Cash flow: expenses are recorded without income; add income or reduce spending.';
+  if (savings < 0) return `Cash flow: expenditure exceeds income by ${formatCurrency(Math.abs(savings))}.`;
+  if (totalIncome > 0 && savings >= totalIncome * 0.2) return `Savings tip: retain ${formatCurrency(savings)} as a reserve; it is at least 20% of income.`;
+  if (savings === 0) return 'Savings: income and expenditure are currently balanced.';
+  return `Savings tip: ${formatCurrency(savings)} remains after expenditure; keep a fixed portion aside next month.`;
+}
+
 function getSavingsTip() {
   const totalIncome = entries.filter((item) => item.type === 'Income').reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = entries.filter((item) => item.type === 'Expense').reduce((sum, item) => sum + item.amount, 0);
@@ -388,16 +396,14 @@ function getSavingsTip() {
       .join(', ');
     const categorySteps = exceededBudgets.flatMap(({ category, spent, budget }) => {
       const overage = spent - budget;
-      return [
-        `${category}: review the recent entries and identify the largest spending drivers.`,
-        `${category}: reduce spending by at least ${formatCurrency(overage)} before the month ends.`,
-      ];
+      return [`${category}: cut or defer ${formatCurrency(overage)} in spending and review the largest recent entry.`];
     });
     return {
       message: `Over-budget categories this month: ${categorySummary}.`,
       steps: [
         ...categorySteps,
-        'Lower the next budget or move funds from a category with unused budget if this pattern is expected.',
+        getCashFlowObservation(totalIncome, totalExpenses, savings),
+        'Adjust the next budget only if this spending level is intentional.',
       ],
     };
   }
@@ -411,8 +417,8 @@ function getSavingsTip() {
       message: 'Your savings are strong. Keep this pace and consider increasing your reserve for future goals.',
       steps: [
         'Keep tracking income and expense entries regularly.',
+        getCashFlowObservation(totalIncome, totalExpenses, savings),
         'Raise your savings goal slightly if your cash flow stays stable.',
-        'Consider splitting savings into short-term and long-term buckets.',
       ],
     };
   }
@@ -422,8 +428,8 @@ function getSavingsTip() {
       message: 'You are saving money. Focus on maintaining this balance and trimming discretionary expenses for faster progress.',
       steps: [
         'Review your variable expenses and see where you can reduce small recurring costs.',
-        'Keep setting aside a fixed amount each week or month.',
-        'Use your closing balance to decide how much you can safely save next month.',
+        getCashFlowObservation(totalIncome, totalExpenses, savings),
+        'Set aside a fixed amount each week or month.',
       ],
     };
   }
@@ -432,8 +438,8 @@ function getSavingsTip() {
     message: 'Your expenses exceed income. Prioritize reducing spending so you can start building savings.',
     steps: [
       'Identify the largest expense categories and reduce one of them.',
+      getCashFlowObservation(totalIncome, totalExpenses, savings),
       'Avoid non-essential purchases until you have a positive savings buffer.',
-      'Use the app to track every entry and spot patterns quickly.',
     ],
   };
 }
