@@ -18,7 +18,23 @@ const summaryClosing = document.getElementById('summaryClosing');
 const chartCanvas = document.getElementById('budgetChart');
 const downloadReportButton = document.getElementById('downloadReportButton');
 const deleteSelectedButton = document.getElementById('deleteSelectedButton');
+const downloadTransactionsButton = document.getElementById('downloadTransactionsButton');
+const downloadFormatDialog = document.getElementById('downloadFormatDialog');
+const downloadPdfOption = document.getElementById('downloadPdfOption');
+const downloadExcelOption = document.getElementById('downloadExcelOption');
+const cancelDownloadButton = document.getElementById('cancelDownloadButton');
 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+const entryTypeFilter = document.getElementById('entryTypeFilter');
+const entryDateFilter = document.getElementById('entryDateFilter');
+const entryDateFromFilter = document.getElementById('entryDateFromFilter');
+const entryDateToFilter = document.getElementById('entryDateToFilter');
+const entryCategoryFilter = document.getElementById('entryCategoryFilter');
+const entryDescriptionFilter = document.getElementById('entryDescriptionFilter');
+const entryAmountMinFilter = document.getElementById('entryAmountMinFilter');
+const entryAmountMaxFilter = document.getElementById('entryAmountMaxFilter');
+const entryAmountOperator = document.getElementById('entryAmountOperator');
+const filterMenus = Array.from(document.querySelectorAll('.filter-menu'));
+const filterButtons = Array.from(document.querySelectorAll('.filter-icon'));
 const tipButton = document.getElementById('tipButton');
 const tipText = document.getElementById('tipText');
 const tipSection = document.querySelector('.tip-strip');
@@ -46,15 +62,42 @@ const currentUserName = document.getElementById('currentUserName');
 const reportForm = document.getElementById('reportForm');
 const reportStartDate = document.getElementById('reportStartDate');
 const reportEndDate = document.getElementById('reportEndDate');
+const categoryBudgetCategory = document.getElementById('categoryBudgetCategory');
+const categoryBudgetAmount = document.getElementById('categoryBudgetAmount');
+const addCategoryBudgetButton = document.getElementById('addCategoryBudgetButton');
+const budgetListButton = document.getElementById('budgetListButton');
+const budgetListPanel = document.getElementById('budgetListPanel');
+const budgetListContent = document.getElementById('budgetListContent');
+const budgetStatusList = document.getElementById('budgetStatusList');
+const addIncomeCategoryButton = document.getElementById('addIncomeCategoryButton');
+const addExpenseCategoryButton = document.getElementById('addExpenseCategoryButton');
+const categoryDialog = document.getElementById('categoryDialog');
+const categoryForm = document.getElementById('categoryForm');
+const categoryDialogTitle = document.getElementById('categoryDialogTitle');
+const categoryName = document.getElementById('categoryName');
+const categoryDescription = document.getElementById('categoryDescription');
+const categoryMessage = document.getElementById('categoryMessage');
+const cancelCategoryButton = document.getElementById('cancelCategoryButton');
+const idleTimeoutDialog = document.getElementById('idleTimeoutDialog');
+const idleCountdown = document.getElementById('idleCountdown');
+const continueSessionButton = document.getElementById('continueSessionButton');
 
 let entries = [];
 let nextEntryId = 1;
 let budgetChart;
 let currentUsername = '';
 let isRegistrationMode = false;
+let activeCategoryType = '';
+let customCategories = { Income: [], Expense: [] };
+let categoryBudgets = {};
+let idleWarningTimer;
+let idleLogoutTimer;
+let idleCountdownTimer;
 
 const USERS_STORAGE_KEY = 'budgetAppUsers';
 const SESSION_STORAGE_KEY = 'budgetAppSession';
+const IDLE_WARNING_MS = 13 * 60 * 1000;
+const IDLE_LOGOUT_MS = 2 * 60 * 1000;
 
 function getStoredUsers() {
   return JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '{}');
@@ -70,6 +113,8 @@ function saveBudgetState() {
     openingBalance: Number(openingBalanceInput.value) || 0,
     entries,
     nextEntryId,
+    customCategories,
+    categoryBudgets,
   }));
 }
 
@@ -78,6 +123,11 @@ function loadBudgetState() {
   openingBalanceInput.value = savedState?.openingBalance ?? 10000;
   entries = Array.isArray(savedState?.entries) ? savedState.entries : [];
   nextEntryId = savedState?.nextEntryId || (entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0) + 1);
+  customCategories = {
+    Income: Array.isArray(savedState?.customCategories?.Income) ? savedState.customCategories.Income : [],
+    Expense: Array.isArray(savedState?.customCategories?.Expense) ? savedState.customCategories.Expense : [],
+  };
+  categoryBudgets = savedState?.categoryBudgets && typeof savedState.categoryBudgets === 'object' ? savedState.categoryBudgets : {};
 }
 
 function setAuthenticatedView(isAuthenticated) {
@@ -88,6 +138,47 @@ function setAuthenticatedView(isAuthenticated) {
 function showAuthMessage(message, isError = true) {
   authMessage.textContent = message;
   authMessage.classList.toggle('error', isError);
+}
+
+function clearIdleTimers() {
+  clearTimeout(idleWarningTimer);
+  clearTimeout(idleLogoutTimer);
+  clearInterval(idleCountdownTimer);
+}
+
+function hideIdleTimeoutDialog() {
+  clearIdleTimers();
+  idleTimeoutDialog.hidden = true;
+}
+
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
+
+function showIdleTimeoutDialog() {
+  if (!currentUsername) return;
+
+  idleTimeoutDialog.hidden = false;
+  idleCountdown.textContent = formatCountdown(IDLE_LOGOUT_MS);
+  const warningStartedAt = Date.now();
+  idleCountdownTimer = setInterval(() => {
+    idleCountdown.textContent = formatCountdown(IDLE_LOGOUT_MS - (Date.now() - warningStartedAt));
+  }, 1000);
+  idleLogoutTimer = setTimeout(() => handleLogout(), IDLE_LOGOUT_MS);
+}
+
+function resetIdleTimer() {
+  if (!currentUsername || !idleTimeoutDialog.hidden) return;
+
+  clearIdleTimers();
+  idleWarningTimer = setTimeout(showIdleTimeoutDialog, IDLE_WARNING_MS);
+}
+
+function handleActivity() {
+  resetIdleTimer();
 }
 
 function updateRegistrationFields() {
@@ -123,12 +214,14 @@ function handleAuthSubmit(event) {
   }
 
   currentUsername = username;
-  sessionStorage.setItem(SESSION_STORAGE_KEY, currentUsername);
+  localStorage.setItem(SESSION_STORAGE_KEY, currentUsername);
   currentUserName.textContent = currentUsername;
   loadBudgetState();
   setAuthenticatedView(true);
   refreshEntries();
   updateSummary();
+  hideIdleTimeoutDialog();
+  resetIdleTimer();
   authForm.reset();
 }
 
@@ -173,13 +266,14 @@ function togglePasswordVisibility() {
 }
 
 function handleLogout() {
+  hideIdleTimeoutDialog();
   saveBudgetState();
   currentUsername = '';
   isRegistrationMode = false;
   authSubmitButton.textContent = 'Sign in';
   authModeButton.textContent = 'New here? Create an account';
   updateRegistrationFields();
-  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  localStorage.removeItem(SESSION_STORAGE_KEY);
   setAuthenticatedView(false);
 }
 
@@ -239,10 +333,74 @@ function formatPdfCurrency(value) {
   return `Rs ${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 }
 
+function parseDisplayDate(value) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
+  const match = value.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!match) return '';
+  const [, day, month, year] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
+  return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(value) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+}
+
+function getDateRangeValues() {
+  return {
+    startDate: parseDisplayDate(reportStartDate.value),
+    endDate: parseDisplayDate(reportEndDate.value),
+  };
+}
+
+function getExpenseCategoryNames() {
+  return [...categoryOptions.Expense, ...customCategories.Expense.map((category) => category.name)]
+    .filter((category, index, allCategories) => allCategories.indexOf(category) === index);
+}
+
+function getAllCategoryNames() {
+  return [...categoryOptions.Income, ...categoryOptions.Expense, ...customCategories.Income, ...customCategories.Expense]
+    .map((category) => typeof category === 'string' ? category : category.name)
+    .filter((category, index, allCategories) => allCategories.indexOf(category) === index);
+}
+
+function getCategorySpend(category) {
+  return entries
+    .filter((item) => item.type === 'Expense' && item.category === category)
+    .reduce((sum, item) => sum + item.amount, 0);
+}
+
 function getSavingsTip() {
   const totalIncome = entries.filter((item) => item.type === 'Income').reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = entries.filter((item) => item.type === 'Expense').reduce((sum, item) => sum + item.amount, 0);
   const savings = totalIncome - totalExpenses;
+
+  const exceededBudgets = getExpenseCategoryNames()
+    .map((category) => ({ category, budget: Number(categoryBudgets[category]) || 0, spent: getCategorySpend(category) }))
+    .filter((item) => item.budget > 0 && item.spent > item.budget)
+    .sort((a, b) => (b.spent - b.budget) - (a.spent - a.budget));
+
+  if (exceededBudgets.length) {
+    const categorySummary = exceededBudgets
+      .map(({ category, spent, budget }) => `${category} by ${formatCurrency(spent - budget)}`)
+      .join(', ');
+    const categorySteps = exceededBudgets.flatMap(({ category, spent, budget }) => {
+      const overage = spent - budget;
+      return [
+        `${category}: review the recent entries and identify the largest spending drivers.`,
+        `${category}: reduce spending by at least ${formatCurrency(overage)} before the month ends.`,
+      ];
+    });
+    return {
+      message: `Over-budget categories this month: ${categorySummary}.`,
+      steps: [
+        ...categorySteps,
+        'Lower the next budget or move funds from a category with unused budget if this pattern is expected.',
+      ],
+    };
+  }
 
   if (entries.length === 0) {
     return null;
@@ -330,7 +488,7 @@ function addEntryRow(record) {
   row.innerHTML = `
     <td><input type="checkbox" class="select-entry" data-id="${record.id}" aria-label="Select entry"/></td>
     <td>${record.type}</td>
-    <td>${record.date}</td>
+    <td>${formatDisplayDate(record.date)}</td>
     <td>${record.category}</td>
     <td>${record.description}</td>
     <td class="${amountClass}">${formatCurrency(record.amount)}</td>
@@ -341,7 +499,52 @@ function addEntryRow(record) {
 function refreshEntries() {
   entriesTableBody.innerHTML = '';
   entries.sort((a, b) => new Date(a.date) - new Date(b.date));
-  entries.forEach((record) => addEntryRow(record));
+  const type = entryTypeFilter.value;
+  const exactDate = parseDisplayDate(entryDateFilter.value);
+  const dateFrom = parseDisplayDate(entryDateFromFilter.value);
+  const dateTo = parseDisplayDate(entryDateToFilter.value);
+  const category = entryCategoryFilter.value.trim().toLowerCase();
+  const description = entryDescriptionFilter.value.trim().toLowerCase();
+  const amountValue = entryAmountMinFilter.value === '' ? null : Number(entryAmountMinFilter.value);
+  const maximumAmount = entryAmountMaxFilter.value === '' ? null : Number(entryAmountMaxFilter.value);
+  const amountMatches = (amount) => {
+    if (amountValue === null) return true;
+    if (entryAmountOperator.value === 'less') return amount < amountValue;
+    if (entryAmountOperator.value === 'greater') return amount > amountValue;
+    if (entryAmountOperator.value === 'exactly') return amount === amountValue;
+    return maximumAmount !== null && amount >= amountValue && amount <= maximumAmount;
+  };
+  const filteredEntries = entries.filter((record) => (
+    (!type || record.type === type)
+    && (exactDate ? record.date === exactDate : ((!dateFrom || record.date >= dateFrom) && (!dateTo || record.date <= dateTo)))
+    && (!category || record.category.toLowerCase().includes(category))
+    && (!description || record.description.toLowerCase().includes(description))
+    && amountMatches(record.amount)
+  ));
+  filteredEntries.forEach((record) => addEntryRow(record));
+  selectAllCheckbox.checked = false;
+}
+
+function updateCategoryFilterOptions() {
+  const selectedCategory = entryCategoryFilter.value;
+  const categories = getAllCategoryNames();
+  entryCategoryFilter.innerHTML = '<option value="">All categories</option>';
+  categories.forEach((category) => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    entryCategoryFilter.appendChild(option);
+  });
+  entryCategoryFilter.value = categories.includes(selectedCategory) ? selectedCategory : '';
+}
+
+function updateAmountFilterFields() {
+  entryAmountMaxFilter.hidden = entryAmountOperator.value !== 'between';
+  entryAmountMinFilter.placeholder = entryAmountOperator.value === 'between' ? 'Minimum' : 'Amount';
+}
+
+function closeFilterMenus() {
+  filterMenus.forEach((menu) => { menu.hidden = true; });
 }
 
 function getSortedLabels() {
@@ -359,80 +562,108 @@ function getSeries(labels, type) {
   return labels.map((date) => recordMap[date] || 0);
 }
 
-function updateChart(openingBalance, totalIncome, totalExpenses, closingBalance) {
-  const labels = getSortedLabels();
-  const incomeSeries = getSeries(labels, 'Income');
-  const expenseSeries = getSeries(labels, 'Expense');
-  const savingsSeries = labels.map((_, idx) => incomeSeries[idx] - expenseSeries[idx]);
+function updateBudgetControls() {
+  const categories = getExpenseCategoryNames();
+  const selectedCategory = categoryBudgetCategory.value;
+  categoryBudgetCategory.innerHTML = '<option value="">Select category</option>';
+  categories.forEach((category) => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    categoryBudgetCategory.appendChild(option);
+  });
+  categoryBudgetCategory.value = categories.includes(selectedCategory) ? selectedCategory : '';
+  renderBudgetList();
+}
 
+function renderBudgetList() {
+  const savedBudgets = Object.entries(categoryBudgets).filter(([, amount]) => Number(amount) > 0);
+  budgetListContent.innerHTML = '';
+  if (!savedBudgets.length) {
+    budgetListContent.textContent = 'No budgets added yet.';
+    return;
+  }
+  savedBudgets.sort(([first], [second]) => first.localeCompare(second)).forEach(([category, budget]) => {
+    const row = document.createElement('div');
+    row.className = 'budget-list-row';
+    row.innerHTML = `<span>${category}</span><strong>${formatCurrency(Number(budget))}</strong>`;
+    budgetListContent.appendChild(row);
+  });
+}
+
+function addCategoryBudget() {
+  const category = categoryBudgetCategory.value;
+  const amount = Number(categoryBudgetAmount.value);
+  if (!category || !amount || amount < 0) return;
+  categoryBudgets[category] = amount;
+  categoryBudgetAmount.value = '';
+  saveBudgetState();
+  renderBudgetList();
+  updateSummary();
+}
+
+function updateBudgetStatus(categories, spentValues, budgetValues) {
+  budgetStatusList.innerHTML = '';
+  categories.forEach((category, index) => {
+    const spent = spentValues[index];
+    const budget = budgetValues[index];
+    if (!budget) return;
+    const status = document.createElement('div');
+    const exceeded = spent > budget;
+    status.className = `budget-status ${exceeded ? 'over-budget' : 'within-budget'}`;
+    status.innerHTML = `<span>${category}</span><strong>${exceeded ? 'Over by' : 'Remaining'} ${formatCurrency(Math.abs(budget - spent))}</strong>`;
+    budgetStatusList.appendChild(status);
+  });
+}
+
+function updateChart() {
+  const categories = getExpenseCategoryNames();
+  const spentValues = categories.map((category) => getCategorySpend(category));
+  const budgetValues = categories.map((category) => Number(categoryBudgets[category]) || 0);
+  const hasBudgets = budgetValues.some((value) => value > 0);
   const data = {
-    labels: labels.length ? labels : ['No data'],
+    labels: categories.length ? categories : ['No expense categories'],
     datasets: [
       {
-        label: 'Income',
-        data: labels.length ? incomeSeries : [0],
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(59, 130, 246, 0.18)',
-        fill: true,
-        tension: 0.35,
+        label: 'Spent',
+        data: categories.length ? spentValues : [0],
+        backgroundColor: spentValues.map((value, index) => budgetValues[index] > 0 && value > budgetValues[index] ? '#991b1b' : '#dc2626'),
+        borderRadius: 6,
+        borderSkipped: false,
       },
       {
-        label: 'Expense',
-        data: labels.length ? expenseSeries : [0],
-        borderColor: '#ef4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.16)',
-        fill: true,
-        tension: 0.35,
-      },
-      {
-        label: 'Savings',
-        data: labels.length ? savingsSeries : [0],
-        borderColor: '#16a34a',
-        backgroundColor: 'rgba(16, 185, 129, 0.16)',
-        fill: true,
-        tension: 0.35,
+        label: 'Budget',
+        data: categories.length ? budgetValues : [0],
+        backgroundColor: 'rgba(148, 163, 184, 0.35)',
+        borderColor: '#94a3b8',
+        borderWidth: 1,
+        borderRadius: 6,
       },
     ],
   };
-
   const config = {
-    type: 'line',
+    type: 'bar',
     data,
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
       plugins: {
         legend: {
-          labels: { color: '#334155' },
+          position: 'top',
+          align: 'end',
+          labels: { color: '#334155', usePointStyle: true, padding: 14 },
         },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`,
-          },
-        },
+        tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}` } },
       },
       scales: {
-        x: {
-          grid: { display: false },
-          ticks: { color: '#475569' },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: (value) => formatCurrency(value),
-            color: '#475569',
-          },
-          grid: {
-            color: 'rgba(148, 163, 184, 0.18)',
-          },
-        },
+        x: { grid: { display: false }, ticks: { color: '#475569', callback: (value) => formatDisplayDate(categories[value] || '') } },
+        y: { beginAtZero: true, ticks: { callback: (value) => formatCurrency(value), color: '#475569' }, grid: { color: 'rgba(148, 163, 184, 0.18)' } },
       },
     },
   };
+
+  updateBudgetStatus(categories, spentValues, budgetValues);
+  chartPlaceholder.textContent = hasBudgets ? 'Set budgets above to compare category spending.' : 'Set a budget above to compare spending by category.';
 
   if (!entries.length) {
     if (budgetChart) {
@@ -444,8 +675,8 @@ function updateChart(openingBalance, totalIncome, totalExpenses, closingBalance)
     return;
   }
 
-  chartCanvas.style.display = '';
-  if (chartPlaceholder) chartPlaceholder.style.display = 'none';
+  chartCanvas.style.display = hasBudgets ? '' : 'none';
+  if (chartPlaceholder) chartPlaceholder.style.display = hasBudgets ? 'none' : 'block';
 
   if (budgetChart) {
     budgetChart.data = data;
@@ -464,9 +695,12 @@ function generateReportPdf(event) {
     return;
   }
 
-  const startDate = reportStartDate.value;
-  const endDate = reportEndDate.value;
-  if (startDate && endDate && startDate > endDate) {
+  const { startDate, endDate } = getDateRangeValues();
+  if (!startDate || !endDate) {
+    alert('Please select the date range before downloading the report.');
+    return;
+  }
+  if (startDate > endDate) {
     alert('The report start date must be before the end date.');
     return;
   }
@@ -477,31 +711,43 @@ function generateReportPdf(event) {
   const savings = totalIncome - totalExpenses;
   const closingBalance = openingBalance + savings;
   const doc = new jsPDFConstructor({ unit: 'pt', format: 'a4' });
-  const margin = 40;
+  const margin = 36;
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = margin;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 96;
 
+  const addFooter = () => {
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 28, pageWidth - margin, pageHeight - 28);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Budget App', margin, pageHeight - 14);
+    doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, pageHeight - 14, { align: 'right' });
+  };
+
+  doc.setFillColor(15, 118, 110);
+  doc.roundedRect(margin, 28, pageWidth - margin * 2, 48, 8, 8, 'F');
+  doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text('Budget App Report', pageWidth / 2, y, { align: 'center' });
-  y += 32;
-
+  doc.setFontSize(19);
+  doc.text('Budget App', margin + 16, 51);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, y);
-  y += 20;
-  doc.text(`Period: ${startDate || 'All dates'} to ${endDate || 'All dates'}`, margin, y);
-  y += 20;
+  doc.setFontSize(9);
+  doc.text('Monthly financial summary', margin + 16, 66);
+  doc.text(`Generated ${formatDisplayDate(new Date().toISOString().slice(0, 10))}`, pageWidth - margin - 16, 51, { align: 'right' });
+  doc.text(`Period ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`, pageWidth - margin - 16, 66, { align: 'right' });
 
+  doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('Summary', margin, y);
-  y += 18;
+  y += 10;
 
   const tableWidth = pageWidth - margin * 2;
   doc.autoTable({
     startY: y,
-    theme: 'grid',
+    theme: 'plain',
     tableWidth,
     head: [['Metric', 'Amount']],
     body: [
@@ -511,21 +757,23 @@ function generateReportPdf(event) {
       ['Savings', formatPdfCurrency(savings)],
       ['Closing Balance', formatPdfCurrency(closingBalance)],
     ],
-    styles: { font: 'helvetica', fontSize: 10, cellPadding: 7, overflow: 'linebreak', cellWidth: 'wrap' },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, halign: 'center' },
-    columnStyles: { 0: { cellWidth: 240 }, 1: { cellWidth: 180, halign: 'right' } },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 6, right: 10, bottom: 6, left: 10 }, textColor: [51, 65, 85] },
+    headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', halign: 'left' },
+    bodyStyles: { lineColor: [226, 232, 240], lineWidth: 0.35 },
+    columnStyles: { 0: { cellWidth: 260 }, 1: { cellWidth: tableWidth - 260, halign: 'right', fontStyle: 'bold' } },
     margin: { left: margin, right: margin },
-    tableLineWidth: 0.5,
+    tableLineWidth: 0,
   });
 
-  y = doc.lastAutoTable.finalY + 20;
+  y = doc.lastAutoTable.finalY + 18;
+  doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('Entries', margin, y);
-  y += 18;
+  y += 10;
 
-  const entryBody = filteredEntries.map((record) => [record.type, record.date, record.category, record.description, formatPdfCurrency(record.amount)]);
-  if (entryBody.length === 0) {
+  const entryBody = filteredEntries.map((record) => [record.type, formatDisplayDate(record.date), record.category, record.description, formatPdfCurrency(record.amount)]);
+  if (filteredEntries.length === 0) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text('No entries available.', margin, y);
@@ -533,62 +781,115 @@ function generateReportPdf(event) {
   } else {
     doc.autoTable({
       startY: y,
-      theme: 'grid',
+      theme: 'plain',
       tableWidth,
       head: [['Type', 'Date', 'Category', 'Description', 'Amount']],
       body: entryBody,
-      styles: { font: 'helvetica', fontSize: 10, cellPadding: 6, overflow: 'linebreak', cellWidth: 'wrap' },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, halign: 'center' },
-      columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 70 }, 2: { cellWidth: 90 }, 3: { cellWidth: 200 }, 4: { cellWidth: 80, halign: 'right' } },
+      styles: { font: 'helvetica', fontSize: 8.5, cellPadding: { top: 5, right: 7, bottom: 5, left: 7 }, textColor: [51, 65, 85], overflow: 'linebreak' },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold', halign: 'left' },
+      bodyStyles: { lineColor: [226, 232, 240], lineWidth: 0.35 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: { 0: { cellWidth: 62 }, 1: { cellWidth: 72 }, 2: { cellWidth: 92 }, 3: { cellWidth: tableWidth - 62 - 72 - 92 - 82 }, 4: { cellWidth: 82, halign: 'right', fontStyle: 'bold' } },
       margin: { left: margin, right: margin },
-      tableLineWidth: 0.4,
+      tableLineWidth: 0,
     });
+    y = doc.lastAutoTable.finalY + 18;
   }
 
-  y = doc.lastAutoTable.finalY + 20;
+  if (y + 180 > pageHeight - 42) {
+    addFooter();
+    doc.addPage();
+    y = 48;
+  }
+  doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text('Savings Chart', margin, y);
-  y += 14;
+  doc.text('Spending overview', margin, y);
+  y += 10;
 
   const chartImage = chartCanvas.toDataURL('image/png', 1.0);
   const chartWidth = pageWidth - margin * 2;
-  const chartHeight = chartWidth * 0.55;
-  if (y + chartHeight > doc.internal.pageSize.getHeight() - margin) {
-    doc.addPage();
-    y = margin;
-  }
+  const chartHeight = Math.min(chartWidth * 0.48, pageHeight - y - 54);
   doc.addImage(chartImage, 'PNG', margin, y, chartWidth, chartHeight);
+  addFooter();
 
-  const fileName = `Budget-Report-${startDate || 'all'}-to-${endDate || 'all'}.pdf`;
+  const fileName = `Budget report - ${endDate}.pdf`;
   doc.save(fileName);
+}
+
+function syncReportDateRange() {
+  const startDate = parseDisplayDate(reportStartDate.value);
+  const endDate = parseDisplayDate(reportEndDate.value);
+  reportEndDate.min = startDate || '';
+  reportStartDate.max = endDate || '';
+  if (startDate && endDate && startDate > endDate) {
+    reportEndDate.value = '';
+  }
 }
 
 function updateCategoryOptions() {
   incomeCategory.innerHTML = '';
   expenseCategory.innerHTML = '';
-  categoryOptions['Income'].forEach((option) => {
+  [...categoryOptions.Income, ...customCategories.Income.map((category) => category.name)].forEach((option) => {
     const optionElement = document.createElement('option');
     optionElement.value = option;
     optionElement.textContent = option;
     incomeCategory.appendChild(optionElement);
   });
-  categoryOptions['Expense'].forEach((option) => {
+  [...categoryOptions.Expense, ...customCategories.Expense.map((category) => category.name)].forEach((option) => {
     const optionElement = document.createElement('option');
     optionElement.value = option;
     optionElement.textContent = option;
     expenseCategory.appendChild(optionElement);
   });
+  updateCategoryFilterOptions();
+  updateBudgetControls();
+}
+
+function openCategoryDialog(type) {
+  activeCategoryType = type;
+  categoryDialogTitle.textContent = `Add ${type.toLowerCase()} category`;
+  categoryForm.reset();
+  categoryMessage.textContent = '';
+  categoryDialog.hidden = false;
+  categoryName.focus();
+}
+
+function closeCategoryDialog() {
+  categoryDialog.hidden = true;
+  activeCategoryType = '';
+}
+
+function addCustomCategory(event) {
+  event.preventDefault();
+  const name = categoryName.value.trim();
+  const description = categoryDescription.value.trim();
+  const allNames = [...categoryOptions[activeCategoryType], ...customCategories[activeCategoryType].map((category) => category.name)];
+
+  if (allNames.some((option) => option.toLowerCase() === name.toLowerCase())) {
+    categoryMessage.textContent = 'That category already exists.';
+    return;
+  }
+
+  customCategories[activeCategoryType].push({ name, description });
+  saveBudgetState();
+  updateCategoryOptions();
+  const targetCategory = activeCategoryType === 'Income' ? incomeCategory : expenseCategory;
+  targetCategory.value = name;
+  closeCategoryDialog();
 }
 
 function addEntryRecord(event, type, dateEl, categoryEl, descriptionEl, amountEl) {
   event.preventDefault();
-  const date = dateEl.value;
+  const date = parseDisplayDate(dateEl.value);
   const category = categoryEl.value;
   const description = descriptionEl.value.trim();
   const amount = Number(amountEl.value);
 
-  if (!date || !category || !description || amount <= 0) return;
+  if (!date || !category || !description || amount <= 0) {
+    alert('Select a valid date and complete all fields.');
+    return;
+  }
 
   const record = { id: nextEntryId++, type, date, category, description, amount };
   entries.push(record);
@@ -611,6 +912,118 @@ function deleteSelected() {
   updateSummary();
 }
 
+function downloadTransactions() {
+  const jsPDFConstructor = window.jspdf?.jsPDF || window.jsPDF;
+  if (!jsPDFConstructor) {
+    alert('PDF export is unavailable.');
+    return;
+  }
+
+  const { startDate, endDate } = getDateRangeValues();
+  if (!startDate || !endDate) {
+    alert('Please select the date range before downloading transactions.');
+    return;
+  }
+  if (startDate > endDate) {
+    alert('The transaction start date must be before the end date.');
+    return;
+  }
+
+  const filteredEntries = entries.filter((item) => (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate));
+  const doc = new jsPDFConstructor({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const margin = 40;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const columnX = [margin, 125, 220, 335, pageWidth - margin - 90];
+  const rowHeight = 18;
+  let y = margin + 58;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Transactions', margin, margin);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, margin + 20);
+
+  if (filteredEntries.length === 0) {
+    doc.text('No transactions available.', margin, margin + 48);
+  } else {
+    doc.setFillColor(15, 23, 42);
+    doc.rect(margin, y - 13, pageWidth - margin * 2, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    ['Type', 'Date', 'Category', 'Description', 'Amount'].forEach((heading, index) => doc.text(heading, columnX[index], y));
+    y += rowHeight;
+    doc.setTextColor(31, 41, 55);
+    doc.setFont('helvetica', 'normal');
+
+    filteredEntries.forEach((record) => {
+      const descriptionLines = doc.splitTextToSize(record.description, columnX[4] - columnX[3] - 12);
+      const currentRowHeight = Math.max(rowHeight, descriptionLines.length * 12 + 6);
+      if (y + currentRowHeight > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(margin, y - 13, pageWidth - margin * 2, currentRowHeight, 'S');
+      doc.text(record.type, columnX[0], y);
+      doc.text(formatDisplayDate(record.date), columnX[1], y);
+      doc.text(record.category, columnX[2], y);
+      doc.text(descriptionLines, columnX[3], y);
+      doc.text(formatPdfCurrency(record.amount), columnX[4], y, { align: 'right' });
+      y += currentRowHeight;
+    });
+  }
+
+  const pdfBlob = doc.output('blob');
+  const downloadUrl = URL.createObjectURL(pdfBlob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `Transactions-${startDate || 'all'}-to-${endDate || 'all'}.pdf`;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+}
+
+function downloadTransactionsExcel() {
+  const { startDate, endDate } = getDateRangeValues();
+  if (!startDate || !endDate) {
+    alert('Please select the date range before downloading transactions.');
+    return;
+  }
+  if (startDate > endDate) {
+    alert('The transaction start date must be before the end date.');
+    return;
+  }
+
+  const filteredEntries = entries.filter((item) => (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate));
+  const escapeCsvValue = (value) => `"${String(value).replace(/"/g, '""')}"`;
+  const rows = [
+    ['Type', 'Date', 'Category', 'Description', 'Amount'],
+    ...filteredEntries.map((record) => [record.type, formatDisplayDate(record.date), record.category, record.description, record.amount]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(escapeCsvValue).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `Transactions-${startDate || 'all'}-to-${endDate || 'all'}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+function openDownloadFormatDialog() {
+  downloadFormatDialog.hidden = false;
+}
+
+function closeDownloadFormatDialog() {
+  downloadFormatDialog.hidden = true;
+}
+
 function toggleSelectAll(checked) {
   document.querySelectorAll('.select-entry').forEach((cb) => { cb.checked = checked; });
 }
@@ -629,11 +1042,54 @@ openingBalanceInput.addEventListener('input', () => {
   saveBudgetState();
   updateSummary();
 });
+addCategoryBudgetButton.addEventListener('click', addCategoryBudget);
+budgetListButton.addEventListener('click', () => {
+  budgetListPanel.hidden = !budgetListPanel.hidden;
+});
 incomeForm.addEventListener('submit', (e) => addEntryRecord(e, 'Income', incomeDate, incomeCategory, incomeDescription, incomeAmount));
 expenseForm.addEventListener('submit', (e) => addEntryRecord(e, 'Expense', expenseDate, expenseCategory, expenseDescription, expenseAmount));
 reportForm.addEventListener('submit', generateReportPdf);
+reportStartDate.addEventListener('change', syncReportDateRange);
+reportEndDate.addEventListener('change', syncReportDateRange);
 deleteSelectedButton.addEventListener('click', deleteSelected);
+downloadTransactionsButton.addEventListener('click', openDownloadFormatDialog);
+downloadPdfOption.addEventListener('click', () => {
+  closeDownloadFormatDialog();
+  downloadTransactions();
+});
+downloadExcelOption.addEventListener('click', () => {
+  closeDownloadFormatDialog();
+  downloadTransactionsExcel();
+});
+cancelDownloadButton.addEventListener('click', closeDownloadFormatDialog);
 selectAllCheckbox.addEventListener('change', (e) => toggleSelectAll(e.target.checked));
+[entryTypeFilter, entryDateFilter, entryDateFromFilter, entryDateToFilter, entryCategoryFilter, entryDescriptionFilter, entryAmountMinFilter, entryAmountMaxFilter].forEach((filter) => {
+  filter.addEventListener('input', refreshEntries);
+  filter.addEventListener('change', refreshEntries);
+});
+filterButtons.forEach((button) => {
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const menu = document.getElementById(button.dataset.filterMenu);
+    const shouldOpen = menu.hidden;
+    closeFilterMenus();
+    if (!shouldOpen) return;
+
+    menu.hidden = false;
+    const buttonRect = button.getBoundingClientRect();
+    const headerRect = button.closest('th').getBoundingClientRect();
+    const menuLeft = Math.min(headerRect.left, window.innerWidth - menu.offsetWidth - 8);
+    menu.style.top = `${headerRect.bottom + 4}px`;
+    menu.style.left = `${Math.max(8, menuLeft)}px`;
+  });
+});
+filterMenus.forEach((menu) => menu.addEventListener('click', (event) => event.stopPropagation()));
+window.addEventListener('scroll', closeFilterMenus, true);
+document.addEventListener('click', closeFilterMenus);
+entryAmountOperator.addEventListener('change', () => {
+  updateAmountFilterFields();
+  refreshEntries();
+});
 tipButton.addEventListener('click', showTipOfTheDay);
 incomeClearButton.addEventListener('click', clearIncomeForm);
 expenseClearButton.addEventListener('click', clearExpenseForm);
@@ -642,10 +1098,22 @@ authModeButton.addEventListener('click', toggleAuthMode);
 forgotPasswordButton.addEventListener('click', handleForgotPassword);
 togglePasswordButton.addEventListener('click', togglePasswordVisibility);
 logoutButton.addEventListener('click', handleLogout);
+addIncomeCategoryButton.addEventListener('click', () => openCategoryDialog('Income'));
+addExpenseCategoryButton.addEventListener('click', () => openCategoryDialog('Expense'));
+categoryForm.addEventListener('submit', addCustomCategory);
+cancelCategoryButton.addEventListener('click', closeCategoryDialog);
+continueSessionButton.addEventListener('click', () => {
+  hideIdleTimeoutDialog();
+  resetIdleTimer();
+});
+
+['click', 'keydown', 'input', 'change', 'mousemove', 'pointermove', 'scroll', 'touchstart', 'focus'].forEach((eventName) => {
+  document.addEventListener(eventName, handleActivity, { passive: true });
+});
 
 updateCategoryOptions();
 updateRegistrationFields();
-const savedSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
 if (savedSession && getStoredUsers()[savedSession]) {
   currentUsername = savedSession;
   currentUserName.textContent = currentUsername;
@@ -653,6 +1121,7 @@ if (savedSession && getStoredUsers()[savedSession]) {
   setAuthenticatedView(true);
   refreshEntries();
   updateSummary();
+  resetIdleTimer();
 } else {
   setAuthenticatedView(false);
 }

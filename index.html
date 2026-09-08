@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Budget App</title>
-  <link rel="stylesheet" href="styles.css?v=show-hide" />
+  <link rel="stylesheet" href="styles.css?v=budget-editor-2" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
@@ -42,6 +42,41 @@
       <button id="authModeButton" class="text-button" type="button">New here? Create an account</button>
     </div>
   </section>
+
+  <div id="idleTimeoutDialog" class="idle-timeout-dialog" role="dialog" aria-modal="true" aria-labelledby="idleTimeoutTitle" hidden>
+    <div class="idle-timeout-card">
+      <h2 id="idleTimeoutTitle">Are you still there?</h2>
+      <p>You have been inactive. Your session will sign out in <strong id="idleCountdown">2:00</strong>.</p>
+      <button id="continueSessionButton" type="button">Continue session</button>
+    </div>
+  </div>
+
+  <div id="categoryDialog" class="category-dialog" role="dialog" aria-modal="true" aria-labelledby="categoryDialogTitle" hidden>
+    <form id="categoryForm" class="category-dialog-card">
+      <h2 id="categoryDialogTitle">Add Category</h2>
+      <label for="categoryName">Category name</label>
+      <input id="categoryName" type="text" maxlength="50" required />
+      <label for="categoryDescription">Description</label>
+      <textarea id="categoryDescription" rows="3" maxlength="160" required></textarea>
+      <p id="categoryMessage" class="category-message" role="alert"></p>
+      <div class="category-dialog-actions">
+        <button id="cancelCategoryButton" class="secondary-button" type="button">Cancel</button>
+        <button type="submit">Add category</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="downloadFormatDialog" class="download-format-dialog" role="dialog" aria-modal="true" aria-labelledby="downloadFormatTitle" hidden>
+    <div class="download-format-card">
+      <h2 id="downloadFormatTitle">Download transactions</h2>
+      <p>Choose a file format.</p>
+      <div class="download-format-actions">
+        <button id="downloadPdfOption" type="button">PDF</button>
+        <button id="downloadExcelOption" type="button">Excel</button>
+      </div>
+      <button id="cancelDownloadButton" class="secondary-button" type="button">Cancel</button>
+    </div>
+  </div>
 
   <div class="app-shell">
     <header class="app-header">
@@ -105,7 +140,10 @@
           </div>
           <div class="field-row compact">
             <label>Category</label>
-            <select id="incomeCategory" required></select>
+            <div class="category-control">
+              <select id="incomeCategory" required></select>
+              <button id="addIncomeCategoryButton" class="category-add-button" type="button" aria-label="Add income category" title="Add income category">+</button>
+            </div>
           </div>
           <div class="field-row description-field">
             <label>Description</label>
@@ -132,7 +170,10 @@
           </div>
           <div class="field-row compact">
             <label>Category</label>
-            <select id="expenseCategory" required></select>
+            <div class="category-control">
+              <select id="expenseCategory" required></select>
+              <button id="addExpenseCategoryButton" class="category-add-button" type="button" aria-label="Add expense category" title="Add expense category">+</button>
+            </div>
           </div>
           <div class="field-row description-field">
             <label>Description</label>
@@ -156,17 +197,58 @@
       <div class="table-card">
         <div class="table-header">
           <h2>Entries</h2>
-          <button id="deleteSelectedButton" type="button" class="secondary-button">Delete</button>
+          <div class="entries-actions">
+            <button id="downloadTransactionsButton" type="button" class="secondary-button download-transactions-button">
+              <span class="download-icon" aria-hidden="true">&#8681;</span>
+              <span>Transactions</span>
+            </button>
+            <button id="deleteSelectedButton" type="button" class="secondary-button">Delete</button>
+          </div>
         </div>
         <table>
           <thead>
             <tr>
               <th><input id="selectAllCheckbox" type="checkbox" aria-label="Select all entries" /></th>
-              <th>Type</th>
-              <th>Date</th>
-              <th>Category</th>
-              <th>Description</th>
-              <th>Amount</th>
+              <th class="filter-header">
+                Type <button class="filter-icon" type="button" data-filter-menu="typeFilterMenu" aria-label="Filter by type" title="Filter by type"></button>
+                <div id="typeFilterMenu" class="filter-menu" hidden><select id="entryTypeFilter" aria-label="Filter by type">
+                  <option value="">All types</option>
+                  <option value="Income">Income</option>
+                  <option value="Expense">Expense</option>
+                </select></div>
+              </th>
+              <th class="filter-header">
+                Date <button class="filter-icon" type="button" data-filter-menu="dateFilterMenu" aria-label="Filter by date" title="Filter by date"></button>
+                <div id="dateFilterMenu" class="filter-menu" hidden>
+                  <label for="entryDateFilter">Exact date</label>
+                  <input id="entryDateFilter" type="date" aria-label="Filter by exact date" />
+                  <label for="entryDateFromFilter">From</label>
+                  <input id="entryDateFromFilter" type="date" aria-label="Filter from date" />
+                  <label for="entryDateToFilter">To</label>
+                  <input id="entryDateToFilter" type="date" aria-label="Filter to date" />
+                </div>
+              </th>
+              <th class="filter-header">
+                Category <button class="filter-icon" type="button" data-filter-menu="categoryFilterMenu" aria-label="Filter by category" title="Filter by category"></button>
+                <div id="categoryFilterMenu" class="filter-menu" hidden><select id="entryCategoryFilter" aria-label="Filter by category"><option value="">All categories</option></select></div>
+              </th>
+              <th class="filter-header">
+                Description <button class="filter-icon" type="button" data-filter-menu="descriptionFilterMenu" aria-label="Filter by description" title="Filter by description"></button>
+                <div id="descriptionFilterMenu" class="filter-menu" hidden><input id="entryDescriptionFilter" type="search" placeholder="Search description" aria-label="Filter by description" /></div>
+              </th>
+              <th class="filter-header">
+                Amount <button class="filter-icon" type="button" data-filter-menu="amountFilterMenu" aria-label="Filter by amount" title="Filter by amount"></button>
+                <div id="amountFilterMenu" class="filter-menu amount-filter" hidden>
+                  <select id="entryAmountOperator" aria-label="Amount filter operator">
+                    <option value="less">Less than</option>
+                    <option value="greater">Greater than</option>
+                    <option value="exactly">Exactly</option>
+                    <option value="between">Between</option>
+                  </select>
+                  <input id="entryAmountMinFilter" type="number" min="0" placeholder="Amount" aria-label="Amount value" />
+                  <input id="entryAmountMaxFilter" type="number" min="0" placeholder="Maximum amount" aria-label="Maximum amount" hidden />
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody id="entriesTableBody"></tbody>
@@ -179,19 +261,39 @@
         <div class="chart-header">
           <h2>Chart</h2>
           <form id="reportForm" class="report-form">
+            <span class="report-period-label">Report period</span>
             <label for="reportStartDate">From</label>
-            <input id="reportStartDate" type="date" />
+            <input id="reportStartDate" type="date" required aria-label="Report start date" />
             <label for="reportEndDate">To</label>
-            <input id="reportEndDate" type="date" />
+            <input id="reportEndDate" type="date" required aria-label="Report end date" />
             <button id="downloadReportButton" type="submit">Download Report</button>
           </form>
         </div>
+        <div class="budget-planning-panel">
+          <div>
+            <h3>Category budgets</h3>
+            <p>Add one budget at a time, then review all saved budgets in the list.</p>
+          </div>
+          <div class="budget-entry-controls">
+            <label for="categoryBudgetCategory">Category</label>
+            <select id="categoryBudgetCategory"></select>
+            <label for="categoryBudgetAmount">Budget</label>
+            <input id="categoryBudgetAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="Enter amount" />
+            <button id="addCategoryBudgetButton" type="button">Add budget</button>
+            <button id="budgetListButton" class="secondary-button" type="button">Budget list</button>
+          </div>
+          <div id="budgetListPanel" class="budget-list-panel" hidden>
+            <h4>Saved budgets</h4>
+            <div id="budgetListContent"></div>
+          </div>
+        </div>
         <div id="chartPlaceholder" class="chart-placeholder">Add income or expense entries to see the chart.</div>
         <canvas id="budgetChart"></canvas>
+        <div id="budgetStatusList" class="budget-status-list"></div>
       </div>
     </section>
   </div>
 
-  <script src="script.js?v=show-hide"></script>
+  <script src="script.js?v=budget-editor-2"></script>
 </body>
 </html>
