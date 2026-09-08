@@ -394,16 +394,12 @@ function getSavingsTip() {
     const categorySummary = exceededBudgets
       .map(({ category, spent, budget }) => `${category} by ${formatCurrency(spent - budget)}`)
       .join(', ');
-    const categorySteps = exceededBudgets.flatMap(({ category, spent, budget }) => {
-      const overage = spent - budget;
-      return [`${category}: cut or defer ${formatCurrency(overage)} in spending and review the largest recent entry.`];
-    });
+    const totalOverage = exceededBudgets.reduce((sum, item) => sum + item.spent - item.budget, 0);
     return {
       message: `Over-budget categories this month: ${categorySummary}.`,
       steps: [
-        ...categorySteps,
+        `Review these categories and reduce or defer a combined ${formatCurrency(totalOverage)} in spending.`,
         getCashFlowObservation(totalIncome, totalExpenses, savings),
-        'Adjust the next budget only if this spending level is intentional.',
       ],
     };
   }
